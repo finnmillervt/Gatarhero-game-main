@@ -549,6 +549,7 @@ function animationLoop() {
 }
 
 buildSongSelect();
+keyCountSelect.value = "3";
 applyKeyCount();
 loadBuiltInSong(builtInSongs[0]);
 animationLoop();

@@ -351,6 +351,17 @@ button.ghost {
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
+.play-center:hover,
+.play-top:hover {
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 40px rgba(255, 122, 24, 0.4);
+}
+
+.play-top:hover {
+  transform: translateX(-50%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
 .playfield.is-playing .play-center {
   opacity: 0;
   pointer-events: none;
