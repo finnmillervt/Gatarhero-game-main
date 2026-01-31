@@ -12,62 +12,56 @@
         <p class="eyebrow">Browser Rhythm Game</p>
         <h1>Gatar Hero Lite</h1>
         <p class="lede">
-          Import a song, record a chart by tapping keys to the beat, and play it back
-          with falling notes. Shareable, GitHub Pages-ready, no installs needed.
+          Pick a built-in song or upload your own, choose difficulty and speed, then
+          hit the keys as notes fall. Works on GitHub Pages with no installs.
         </p>
       </div>
       <div class="hero__badge">
         <span class="badge__title">Keys</span>
-        <span class="badge__keys">A S D F G</span>
+        <span class="badge__keys" id="badgeKeys">A S D F G</span>
       </div>
     </header>
 
     <main class="layout">
       <section class="panel">
-        <h2>Setup</h2>
+        <h2>Play</h2>
         <div class="field">
-          <label>Built-in demo</label>
-          <div class="row">
-            <button id="demoSong" class="primary">Load demo track</button>
-            <button id="demoChart" class="ghost">Load demo chart</button>
-          </div>
-          <p class="hint">No downloads needed — a synth track and sample chart are ready.</p>
+          <label for="songSelect">Built-in songs</label>
+          <select id="songSelect"></select>
+          <p class="hint" id="songMeta">Pick a song or upload your own.</p>
         </div>
         <div class="field">
-          <label for="audioFile">Song (mp3/wav/ogg)</label>
+          <label for="audioFile">Upload your own song (mp3/wav/ogg)</label>
           <input id="audioFile" type="file" accept="audio/*" />
-          <p class="hint" id="songMeta">No song loaded yet.</p>
         </div>
-
         <div class="field">
-          <label for="chartFile">Import chart (JSON)</label>
-          <input id="chartFile" type="file" accept="application/json" />
-          <div class="row">
-            <button id="exportChart" class="ghost">Export chart</button>
-            <button id="clearChart" class="ghost">Clear chart</button>
-          </div>
+          <label for="difficulty">Difficulty</label>
+          <select id="difficulty">
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3" selected>Level 3</option>
+            <option value="4">Level 4</option>
+            <option value="5">Level 5</option>
+          </select>
         </div>
-
         <div class="field">
-          <label for="leadTime">Note travel time (seconds)</label>
-          <input id="leadTime" type="number" min="0.8" max="5" step="0.1" value="2.2" />
-          <p class="hint">How long notes take to fall to the hit line.</p>
+          <label for="keyCount">Number of keys</label>
+          <select id="keyCount">
+            <option value="3">3 keys</option>
+            <option value="4">4 keys</option>
+            <option value="5" selected>5 keys</option>
+          </select>
         </div>
-
         <div class="field">
-          <label for="hitWindow">Hit window (ms)</label>
-          <input id="hitWindow" type="number" min="60" max="350" step="10" value="160" />
+          <label for="speed">Speed</label>
+          <select id="speed">
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+          </select>
         </div>
-
-        <div class="field">
-          <label for="latency">Input latency offset (ms)</label>
-          <input id="latency" type="number" min="-300" max="300" step="5" value="0" />
-          <p class="hint">Positive means you press late; adjust to feel right.</p>
-        </div>
-
         <div class="row">
-          <button id="recordBtn" class="primary">Record chart</button>
-          <button id="playBtn" class="primary">Play chart</button>
           <button id="stopBtn">Stop</button>
         </div>
 
@@ -93,10 +87,9 @@
         <div class="field">
           <h3>How it works</h3>
           <ol class="steps">
-            <li>Load a song file.</li>
-            <li>Press “Record chart” and tap A-S-D-F-G to the beat.</li>
-            <li>Stop, then press “Play chart”.</li>
-            <li>Export the JSON to share.</li>
+            <li>Choose a built-in song or upload your own.</li>
+            <li>Pick difficulty and speed.</li>
+            <li>Press Play and hit the keys to the beat.</li>
           </ol>
         </div>
       </section>
@@ -106,6 +99,7 @@
         <div class="playfield" id="playfield">
           <div class="lanes" id="lanes"></div>
           <div class="hitline"></div>
+          <button id="playBtn" class="play-center">Play</button>
         </div>
         <div class="lane-keys" id="laneKeys"></div>
         <div class="timeline">

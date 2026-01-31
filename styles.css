@@ -132,6 +132,16 @@ input[type="number"] {
   font-family: "Space Mono", monospace;
 }
 
+select {
+  width: 100%;
+  background: rgba(10, 12, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 0.6rem 0.8rem;
+  font-family: "Space Mono", monospace;
+}
+
 .row {
   display: flex;
   gap: 0.6rem;
@@ -211,6 +221,11 @@ button.ghost {
   box-shadow: var(--shadow);
 }
 
+.playfield.flash {
+  box-shadow: 0 0 40px rgba(255, 122, 24, 0.5), 0 0 80px rgba(198, 166, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
 .lanes {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -235,6 +250,15 @@ button.ghost {
   pointer-events: none;
 }
 
+.lane.hit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 85%, rgba(255, 255, 255, 0.4), transparent 60%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
 .hitline {
   position: absolute;
   left: 0;
@@ -247,10 +271,11 @@ button.ghost {
 
 .note {
   position: absolute;
-  left: 12%;
-  right: 12%;
-  height: 20px;
+  width: 46px;
+  height: 46px;
   border-radius: 999px;
+  left: 50%;
+  transform: translateX(-50%);
   box-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
   opacity: 0;
   transition: opacity 0.1s ease;
@@ -263,7 +288,8 @@ button.ghost {
 .note.hit {
   background: var(--hit);
   opacity: 0.9;
-  transform: scale(1.15);
+  transform: translateX(-50%) scale(1.25);
+  box-shadow: 0 0 26px rgba(125, 255, 150, 0.9);
 }
 
 .note.miss {
@@ -306,6 +332,28 @@ button.ghost {
   width: 0%;
   background: linear-gradient(90deg, var(--primary), var(--primary-glow));
   transition: width 0.1s linear;
+}
+
+.play-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.9rem 2.4rem;
+  font-size: 1.1rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-glow));
+  color: #1a0d00;
+  border: none;
+  box-shadow: 0 0 40px rgba(255, 122, 24, 0.4);
+  cursor: pointer;
+  z-index: 3;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.playfield.is-playing .play-center {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .stage {

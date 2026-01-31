@@ -1,22 +1,18 @@
-const lanes = [
-  { key: "A", color: "var(--lane-1)" },
-  { key: "S", color: "var(--lane-2)" },
-  { key: "D", color: "var(--lane-3)" },
-  { key: "F", color: "var(--lane-4)" },
-  { key: "G", color: "var(--lane-5)" },
+const baseKeys = ["1", "2", "3", "4", "5"];
+const baseColors = [
+  "var(--lane-1)",
+  "var(--lane-2)",
+  "var(--lane-3)",
+  "var(--lane-4)",
+  "var(--lane-5)",
 ];
 
 const audio = document.getElementById("audio");
 const audioFile = document.getElementById("audioFile");
-const chartFile = document.getElementById("chartFile");
-const exportChart = document.getElementById("exportChart");
-const clearChart = document.getElementById("clearChart");
-const demoSongBtn = document.getElementById("demoSong");
-const demoChartBtn = document.getElementById("demoChart");
-const leadTimeInput = document.getElementById("leadTime");
-const hitWindowInput = document.getElementById("hitWindow");
-const latencyInput = document.getElementById("latency");
-const recordBtn = document.getElementById("recordBtn");
+const songSelect = document.getElementById("songSelect");
+const difficultySelect = document.getElementById("difficulty");
+const speedSelect = document.getElementById("speed");
+const keyCountSelect = document.getElementById("keyCount");
 const playBtn = document.getElementById("playBtn");
 const stopBtn = document.getElementById("stopBtn");
 const lanesEl = document.getElementById("lanes");
@@ -28,6 +24,7 @@ const modeLabel = document.getElementById("modeLabel");
 const scoreLabel = document.getElementById("scoreLabel");
 const comboLabel = document.getElementById("comboLabel");
 const accuracyLabel = document.getElementById("accuracyLabel");
+const badgeKeys = document.getElementById("badgeKeys");
 
 let notes = [];
 let mode = "idle";
@@ -36,15 +33,43 @@ let combo = 0;
 let hits = 0;
 let misses = 0;
 let chartTitle = "Untitled";
-let demoLoaded = false;
-let demoNotes = [];
+let currentSong = null;
+let keyMap = new Map();
+let keyState = new Map();
+let lanes = [];
+let flashTimeout = null;
+let hitAudioContext = null;
 
-const keyMap = new Map(lanes.map((lane, index) => [lane.key, index]));
-const keyState = new Map(lanes.map((lane) => [lane.key, false]));
+const builtInSongs = [
+  { id: "aurora-run", title: "Aurora Run", bpm: 120, length: 36, seed: 12 },
+  { id: "neon-steps", title: "Neon Steps", bpm: 132, length: 34, seed: 34 },
+  { id: "skyline-pulse", title: "Skyline Pulse", bpm: 110, length: 38, seed: 56 },
+  { id: "laser-drift", title: "Laser Drift", bpm: 140, length: 32, seed: 78 },
+  { id: "midnight-arc", title: "Midnight Arc", bpm: 124, length: 35, seed: 91 },
+  { id: "chrome-dawn", title: "Chrome Dawn", bpm: 116, length: 36, seed: 23 },
+  { id: "pixel-drive", title: "Pixel Drive", bpm: 128, length: 34, seed: 45 },
+  { id: "stormline", title: "Stormline", bpm: 136, length: 33, seed: 67 },
+  { id: "glow-ferry", title: "Glow Ferry", bpm: 112, length: 37, seed: 89 },
+  { id: "ghost-signal", title: "Ghost Signal", bpm: 118, length: 35, seed: 101 },
+];
+
+function buildLaneSet(count) {
+  return baseKeys.slice(0, count).map((key, index) => ({
+    key,
+    color: baseColors[index],
+  }));
+}
+
+function rebuildKeyMaps() {
+  keyMap = new Map(lanes.map((lane, index) => [lane.key, index]));
+  keyState = new Map(lanes.map((lane) => [lane.key, false]));
+}
 
 function buildLanes() {
   lanesEl.innerHTML = "";
   laneKeysEl.innerHTML = "";
+  lanesEl.style.gridTemplateColumns = `repeat(${lanes.length}, 1fr)`;
+  laneKeysEl.style.gridTemplateColumns = `repeat(${lanes.length}, 1fr)`;
   lanes.forEach((lane, index) => {
     const laneDiv = document.createElement("div");
     laneDiv.className = "lane";
@@ -63,6 +88,7 @@ function buildLanes() {
 function setMode(nextMode) {
   mode = nextMode;
   modeLabel.textContent = mode[0].toUpperCase() + mode.slice(1);
+  playfield.classList.toggle("is-playing", mode === "play");
 }
 
 function resetScore() {
@@ -94,10 +120,14 @@ function rebuildNotes() {
   notes.forEach((note) => createNoteElement(note));
 }
 
-function addNote(laneIndex, time) {
-  const note = { lane: laneIndex, time, hit: false, miss: false, el: null };
-  notes.push(note);
-  createNoteElement(note);
+function resetNoteStates() {
+  notes.forEach((note) => {
+    note.hit = false;
+    note.miss = false;
+    if (note.el) {
+      note.el.classList.remove("hit", "miss");
+    }
+  });
 }
 
 function sortNotes() {
@@ -105,15 +135,15 @@ function sortNotes() {
 }
 
 function getLeadTime() {
-  return Number(leadTimeInput.value) || 2.2;
+  const speed = Number(speedSelect.value) || 1;
+  return 2.2 / speed;
 }
 
 function getHitWindow() {
-  return (Number(hitWindowInput.value) || 160) / 1000;
-}
-
-function getLatency() {
-  return (Number(latencyInput.value) || 0) / 1000;
+  const difficulty = Number(difficultySelect.value) || 3;
+  const base = 0.2;
+  const adjustment = (difficulty - 1) * 0.025;
+  return Math.max(0.08, base - adjustment);
 }
 
 function updateTimeline() {
@@ -150,15 +180,45 @@ function updateNotes() {
   });
 }
 
-function handleHit(laneIndex) {
-  if (mode === "record") {
-    addNote(laneIndex, audio.currentTime);
-    sortNotes();
-    return;
+function playHitSound(laneIndex) {
+  if (!hitAudioContext) {
+    hitAudioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
+  if (hitAudioContext.state === "suspended") {
+    hitAudioContext.resume();
+  }
+  const now = hitAudioContext.currentTime;
+  const osc = hitAudioContext.createOscillator();
+  const gain = hitAudioContext.createGain();
+  const freq = 220 * Math.pow(2, (laneIndex * 3) / 12);
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(freq, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+  osc.connect(gain).connect(hitAudioContext.destination);
+  osc.start(now);
+  osc.stop(now + 0.24);
+}
+
+function flashHit(laneIndex) {
+  playfield.classList.add("flash");
+  if (flashTimeout) clearTimeout(flashTimeout);
+  flashTimeout = setTimeout(() => {
+    playfield.classList.remove("flash");
+  }, 120);
+
+  const laneEl = lanesEl.children[laneIndex];
+  if (laneEl) {
+    laneEl.classList.add("hit");
+    setTimeout(() => laneEl.classList.remove("hit"), 140);
+  }
+}
+
+function handleHit(laneIndex) {
   if (mode !== "play") return;
 
-  const now = audio.currentTime + getLatency();
+  const now = audio.currentTime;
   const window = getHitWindow();
   let candidate = null;
   for (const note of notes) {
@@ -177,6 +237,8 @@ function handleHit(laneIndex) {
     score += 100 + combo * 5;
     combo += 1;
     hits += 1;
+    playHitSound(laneIndex);
+    flashHit(laneIndex);
   } else {
     combo = 0;
     misses += 1;
@@ -195,20 +257,8 @@ function stopPlayback() {
   audio.currentTime = 0;
   setMode("idle");
   updateTimeline();
+  resetNoteStates();
   rebuildNotes();
-}
-
-function startRecord() {
-  if (!audio.src) {
-    songMeta.textContent = "Load a song before recording.";
-    return;
-  }
-  resetScore();
-  notes = [];
-  rebuildNotes();
-  audio.currentTime = 0;
-  setMode("record");
-  audio.play();
 }
 
 function startPlay() {
@@ -217,102 +267,52 @@ function startPlay() {
     return;
   }
   if (!notes.length) {
-    songMeta.textContent = "No chart yet. Record a chart or import JSON.";
+    songMeta.textContent = "No notes yet. Pick a song or upload one.";
     return;
   }
   resetScore();
+  resetNoteStates();
   audio.currentTime = 0;
   setMode("play");
+  audio.playbackRate = Number(speedSelect.value) || 1;
+  audio.volume = 0;
   audio.play();
 }
 
-function exportChartToFile() {
-  if (!notes.length) {
-    songMeta.textContent = "No chart to export.";
-    return;
+function seededRandom(seed) {
+  let state = seed % 2147483647;
+  if (state <= 0) state += 2147483646;
+  return () => {
+    state = (state * 48271) % 2147483647;
+    return (state - 1) / 2147483646;
+  };
+}
+
+function hashString(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
   }
-  const payload = {
-    title: chartTitle,
-    leadTime: getLeadTime(),
-    notes: notes.map((note) => ({ lane: note.lane, time: Number(note.time.toFixed(3)) })),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${chartTitle.replace(/\s+/g, "-").toLowerCase() || "chart"}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  return Math.abs(hash) || 13;
 }
 
-function importChartFromFile(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      if (!Array.isArray(data.notes)) throw new Error("Invalid chart format.");
-      chartTitle = data.title || chartTitle;
-      if (data.leadTime) leadTimeInput.value = data.leadTime;
-      notes = data.notes.map((note) => ({
-        lane: Number(note.lane) || 0,
-        time: Number(note.time) || 0,
-        hit: false,
-        miss: false,
-        el: null,
-      }));
-      sortNotes();
-      rebuildNotes();
-      songMeta.textContent = `Chart loaded: ${chartTitle} (${notes.length} notes)`;
-    } catch (error) {
-      songMeta.textContent = "Could not read chart JSON.";
-    }
-  };
-  reader.readAsText(file);
-}
-
-function loadDemoSong() {
-  if (audio.src && demoLoaded) return;
-  const context = new (window.AudioContext || window.webkitAudioContext)();
-  const duration = 34;
-  const sampleRate = 44100;
-  const length = duration * sampleRate;
-  const buffer = context.createBuffer(1, length, sampleRate);
-  const data = buffer.getChannelData(0);
-
-  const melody = [0, 3, 7, 10, 7, 3, 0, -2];
-  const bass = [0, 0, -5, -5, -7, -7, -5, -5];
-  const bpm = 118;
+function generateChart(duration, bpm, difficulty, seed) {
+  const rng = seededRandom(seed);
   const beat = 60 / bpm;
-
-  for (let i = 0; i < length; i += 1) {
-    const t = i / sampleRate;
-    const step = Math.floor(t / beat) % melody.length;
-    const freq =
-      220 *
-      Math.pow(2, (melody[step] + bass[Math.floor(step / 2)] / 2) / 12);
-    const env = Math.exp(-((t % beat) * 6));
-    const synth =
-      Math.sin(2 * Math.PI * freq * t) * 0.22 +
-      Math.sin(2 * Math.PI * (freq * 2) * t) * 0.06;
-    const hats = (Math.random() * 2 - 1) * 0.015 * (1 - (t % (beat / 2)) * 4);
-    data[i] = (synth * env + hats) * 0.9;
+  const densityMap = [1, 1.5, 2, 2.5, 3];
+  const density = densityMap[Math.max(0, Math.min(4, difficulty - 1))];
+  const step = beat / density;
+  const result = [];
+  let time = 0.8;
+  while (time < duration - 1) {
+    if (rng() > 0.12) {
+      const lane = Math.floor(rng() * lanes.length);
+      result.push({ lane, time: Number(time.toFixed(3)) });
+    }
+    time += step;
   }
-
-  const wavBlob = bufferToWavBlob(buffer);
-  const url = URL.createObjectURL(wavBlob);
-  audio.src = url;
-  demoLoaded = true;
-  chartTitle = "Demo Track";
-  songMeta.textContent = "Loaded: Built-in demo track";
-  audio.addEventListener(
-    "loadedmetadata",
-    () => {
-      songMeta.textContent = `Loaded: Built-in demo track · ${audio.duration.toFixed(1)}s`;
-    },
-    { once: true }
-  );
+  return result;
 }
 
 function bufferToWavBlob(buffer) {
@@ -371,67 +371,140 @@ function bufferToWavBlob(buffer) {
   return new Blob([arrayBuffer], { type: "audio/wav" });
 }
 
-function loadDemoChart() {
-  if (!demoNotes.length) {
-    const bpm = 118;
-    const beat = 60 / bpm;
-    const pattern = [0, 1, 2, 3, 4, 3, 2, 1];
-    const demo = [];
-    let time = 0.8;
-    for (let bar = 0; bar < 16; bar += 1) {
-      for (let step = 0; step < pattern.length; step += 1) {
-        demo.push({ lane: pattern[step], time: Number(time.toFixed(3)) });
-        time += beat / 2;
-      }
-      time += beat / 2;
-    }
-    demoNotes = demo;
+function generateSongAudio(song) {
+  const context = new (window.AudioContext || window.webkitAudioContext)();
+  const duration = song.length;
+  const sampleRate = 44100;
+  const length = duration * sampleRate;
+  const buffer = context.createBuffer(1, length, sampleRate);
+  const data = buffer.getChannelData(0);
+
+  const melody = [0, 3, 7, 10, 7, 3, 0, -2];
+  const altMelody = [0, 5, 7, 12, 7, 5, 0, -5];
+  const bass = [0, 0, -5, -5, -7, -7, -5, -5];
+  const bpm = song.bpm;
+  const beat = 60 / bpm;
+  const rng = seededRandom(song.seed);
+
+  for (let i = 0; i < length; i += 1) {
+    const t = i / sampleRate;
+    const step = Math.floor(t / beat) % melody.length;
+    const melodyIndex = rng() > 0.5 ? melody[step] : altMelody[step];
+    const freq =
+      220 * Math.pow(2, (melodyIndex + bass[Math.floor(step / 2)] / 2) / 12);
+    const env = Math.exp(-((t % beat) * 6));
+    const synth =
+      Math.sin(2 * Math.PI * freq * t) * 0.24 +
+      Math.sin(2 * Math.PI * (freq * 2) * t) * 0.05;
+    const hats = (Math.random() * 2 - 1) * 0.02 * (1 - (t % (beat / 2)) * 4);
+    data[i] = (synth * env + hats) * 0.9;
   }
-  notes = demoNotes.map((note) => ({
+
+  return bufferToWavBlob(buffer);
+}
+
+function loadBuiltInSong(song) {
+  const wavBlob = generateSongAudio(song);
+  const url = URL.createObjectURL(wavBlob);
+  audio.src = url;
+  chartTitle = song.title;
+  currentSong = song;
+  songMeta.textContent = `Loaded: ${song.title}`;
+  audio.addEventListener(
+    "loadedmetadata",
+    () => {
+      songMeta.textContent = `Loaded: ${song.title} · ${audio.duration.toFixed(1)}s`;
+      regenerateNotes();
+    },
+    { once: true }
+  );
+}
+
+function regenerateNotes() {
+  if (!audio.duration || Number.isNaN(audio.duration)) return;
+  const duration = audio.duration;
+  const difficulty = Number(difficultySelect.value) || 3;
+  const bpm = currentSong?.bpm || 120;
+  const seed = (currentSong?.seed || 13) + difficulty * 11;
+  const generated = generateChart(duration, bpm, difficulty, seed);
+  notes = generated.map((note) => ({
     lane: note.lane,
     time: note.time,
     hit: false,
     miss: false,
     el: null,
   }));
-  chartTitle = "Demo Track";
   sortNotes();
   rebuildNotes();
-  songMeta.textContent = `Chart loaded: ${chartTitle} (${notes.length} notes)`;
 }
+
+function buildSongSelect() {
+  songSelect.innerHTML = "";
+  builtInSongs.forEach((song, index) => {
+    const option = document.createElement("option");
+    option.value = song.id;
+    option.textContent = `${song.title} (${song.bpm} BPM)`;
+    if (index === 0) option.selected = true;
+    songSelect.appendChild(option);
+  });
+}
+
+function updateKeyDisplay() {
+  badgeKeys.textContent = lanes.map((lane) => lane.key).join(" ");
+}
+
+function applyKeyCount() {
+  const count = Math.min(5, Math.max(3, Number(keyCountSelect.value) || 5));
+  lanes = buildLaneSet(count);
+  rebuildKeyMaps();
+  buildLanes();
+  updateKeyDisplay();
+  regenerateNotes();
+}
+
+songSelect.addEventListener("change", () => {
+  const song = builtInSongs.find((s) => s.id === songSelect.value);
+  if (song) loadBuiltInSong(song);
+});
 
 audioFile.addEventListener("change", (event) => {
   const file = event.target.files[0];
   if (!file) return;
   const url = URL.createObjectURL(file);
   audio.src = url;
-  demoLoaded = false;
   chartTitle = file.name.replace(/\.[^/.]+$/, "");
+  currentSong = {
+    id: "uploaded",
+    title: chartTitle,
+    bpm: 120,
+    length: 0,
+    seed: hashString(chartTitle),
+  };
   songMeta.textContent = `Loaded: ${file.name}`;
   audio.addEventListener(
     "loadedmetadata",
     () => {
       songMeta.textContent = `Loaded: ${file.name} · ${audio.duration.toFixed(1)}s`;
+      regenerateNotes();
     },
     { once: true }
   );
 });
 
-chartFile.addEventListener("change", (event) => {
-  const file = event.target.files[0];
-  if (file) importChartFromFile(file);
+difficultySelect.addEventListener("change", () => {
+  regenerateNotes();
 });
 
-exportChart.addEventListener("click", exportChartToFile);
-clearChart.addEventListener("click", () => {
-  notes = [];
-  rebuildNotes();
-  songMeta.textContent = "Chart cleared.";
+speedSelect.addEventListener("change", () => {
+  if (mode === "play") {
+    audio.playbackRate = Number(speedSelect.value) || 1;
+  }
 });
-demoSongBtn.addEventListener("click", loadDemoSong);
-demoChartBtn.addEventListener("click", loadDemoChart);
 
-recordBtn.addEventListener("click", startRecord);
+keyCountSelect.addEventListener("change", () => {
+  applyKeyCount();
+});
+
 playBtn.addEventListener("click", startPlay);
 stopBtn.addEventListener("click", stopPlayback);
 
@@ -468,12 +541,14 @@ audio.addEventListener("ended", () => {
 });
 
 function animationLoop() {
-  if (mode === "play" || mode === "record") {
+  if (mode === "play") {
     updateNotes();
     updateTimeline();
   }
   requestAnimationFrame(animationLoop);
 }
 
-buildLanes();
+buildSongSelect();
+applyKeyCount();
+loadBuiltInSong(builtInSongs[0]);
 animationLoop();
