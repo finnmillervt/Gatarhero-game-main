@@ -2,14 +2,14 @@
 
 :root {
   color-scheme: light;
-  --bg: #0f1517;
-  --bg-accent: #1c2a2f;
-  --panel: #12191c;
-  --panel-border: #2b3b43;
-  --text: #f2f7f8;
-  --muted: #9bb1b9;
+  --bg: #0b0b14;
+  --bg-accent: #1c1026;
+  --panel: rgba(13, 15, 24, 0.86);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #f7f2ff;
+  --muted: #b9acc9;
   --primary: #ff7a18;
-  --primary-glow: #ffb347;
+  --primary-glow: #ffd25f;
   --lane-1: #57d6ff;
   --lane-2: #6ef0b4;
   --lane-3: #f0df6e;
@@ -18,6 +18,7 @@
   --hit: #7dff96;
   --miss: #ff4f6d;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  --glass: rgba(255, 255, 255, 0.04);
 }
 
 * {
@@ -29,9 +30,10 @@ body {
   font-family: "Space Grotesk", system-ui, sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(255, 122, 24, 0.2), transparent 50%),
-    radial-gradient(circle at 20% 80%, rgba(87, 214, 255, 0.15), transparent 45%),
-    linear-gradient(135deg, #0b0f12, #0f1517 40%, #0c1114 100%);
+    radial-gradient(circle at 10% 10%, rgba(255, 122, 24, 0.3), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(198, 166, 255, 0.25), transparent 45%),
+    radial-gradient(circle at 30% 90%, rgba(87, 214, 255, 0.2), transparent 40%),
+    linear-gradient(135deg, #090a12, #0b0b14 45%, #0f0f1c 100%);
   min-height: 100vh;
 }
 
@@ -68,12 +70,13 @@ p {
 }
 
 .hero__badge {
-  background: linear-gradient(135deg, rgba(255, 122, 24, 0.16), rgba(255, 179, 71, 0.02));
+  background: linear-gradient(135deg, rgba(255, 122, 24, 0.22), rgba(255, 179, 71, 0.04));
   border: 1px solid rgba(255, 122, 24, 0.4);
   padding: 1.5rem 2rem;
   border-radius: 20px;
   box-shadow: var(--shadow);
   text-align: center;
+  backdrop-filter: blur(10px);
 }
 
 .badge__title {
@@ -104,6 +107,7 @@ p {
   border-radius: 18px;
   padding: 2rem;
   box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
 }
 
 .field {
@@ -120,8 +124,8 @@ label {
 input[type="file"],
 input[type="number"] {
   width: 100%;
-  background: #0c1214;
-  border: 1px solid #27363d;
+  background: rgba(10, 12, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   color: var(--text);
   padding: 0.6rem 0.8rem;
@@ -136,7 +140,7 @@ input[type="number"] {
 
 button {
   border: 1px solid transparent;
-  background: #1a2428;
+  background: rgba(20, 24, 36, 0.9);
   color: var(--text);
   padding: 0.6rem 1.1rem;
   border-radius: 999px;
@@ -153,6 +157,7 @@ button:hover {
 button.primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-glow));
   color: #1a0d00;
+  box-shadow: 0 0 30px rgba(255, 122, 24, 0.35);
 }
 
 button.ghost {
@@ -198,8 +203,8 @@ button.ghost {
 
 .playfield {
   position: relative;
-  background: linear-gradient(180deg, #0c1417 0%, #0a1012 55%, #0b1316 100%);
-  border: 1px solid #26363d;
+  background: linear-gradient(180deg, rgba(12, 14, 26, 0.8) 0%, rgba(7, 9, 16, 0.9) 55%, rgba(9, 10, 18, 1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 22px;
   height: 520px;
   overflow: hidden;
@@ -273,8 +278,8 @@ button.ghost {
 }
 
 .key {
-  background: #121b1f;
-  border: 1px solid #2c3c43;
+  background: rgba(15, 20, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   padding: 0.8rem;
   text-align: center;
@@ -303,6 +308,38 @@ button.ghost {
   transition: width 0.1s linear;
 }
 
+.stage {
+  position: relative;
+}
+
+.stage__glow {
+  position: absolute;
+  inset: -40px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 122, 24, 0.25), transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(198, 166, 255, 0.2), transparent 55%),
+    radial-gradient(circle at 50% 90%, rgba(110, 240, 180, 0.18), transparent 60%);
+  filter: blur(0px);
+  z-index: -1;
+}
+
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.panel,
+.playfield,
+.hero__badge {
+  animation: floatIn 0.7s ease both;
+}
+
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: 1fr;
@@ -312,4 +349,3 @@ button.ghost {
     padding: 2.5rem 6vw 1.5rem;
   }
 }
-

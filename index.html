@@ -26,6 +26,14 @@
       <section class="panel">
         <h2>Setup</h2>
         <div class="field">
+          <label>Built-in demo</label>
+          <div class="row">
+            <button id="demoSong" class="primary">Load demo track</button>
+            <button id="demoChart" class="ghost">Load demo chart</button>
+          </div>
+          <p class="hint">No downloads needed — a synth track and sample chart are ready.</p>
+        </div>
+        <div class="field">
           <label for="audioFile">Song (mp3/wav/ogg)</label>
           <input id="audioFile" type="file" accept="audio/*" />
           <p class="hint" id="songMeta">No song loaded yet.</p>
@@ -94,6 +102,7 @@
       </section>
 
       <section class="stage">
+        <div class="stage__glow"></div>
         <div class="playfield" id="playfield">
           <div class="lanes" id="lanes"></div>
           <div class="hitline"></div>

@@ -11,6 +11,8 @@ const audioFile = document.getElementById("audioFile");
 const chartFile = document.getElementById("chartFile");
 const exportChart = document.getElementById("exportChart");
 const clearChart = document.getElementById("clearChart");
+const demoSongBtn = document.getElementById("demoSong");
+const demoChartBtn = document.getElementById("demoChart");
 const leadTimeInput = document.getElementById("leadTime");
 const hitWindowInput = document.getElementById("hitWindow");
 const latencyInput = document.getElementById("latency");
@@ -34,6 +36,8 @@ let combo = 0;
 let hits = 0;
 let misses = 0;
 let chartTitle = "Untitled";
+let demoLoaded = false;
+let demoNotes = [];
 
 const keyMap = new Map(lanes.map((lane, index) => [lane.key, index]));
 const keyState = new Map(lanes.map((lane) => [lane.key, false]));
@@ -268,11 +272,140 @@ function importChartFromFile(file) {
   reader.readAsText(file);
 }
 
+function loadDemoSong() {
+  if (audio.src && demoLoaded) return;
+  const context = new (window.AudioContext || window.webkitAudioContext)();
+  const duration = 34;
+  const sampleRate = 44100;
+  const length = duration * sampleRate;
+  const buffer = context.createBuffer(1, length, sampleRate);
+  const data = buffer.getChannelData(0);
+
+  const melody = [0, 3, 7, 10, 7, 3, 0, -2];
+  const bass = [0, 0, -5, -5, -7, -7, -5, -5];
+  const bpm = 118;
+  const beat = 60 / bpm;
+
+  for (let i = 0; i < length; i += 1) {
+    const t = i / sampleRate;
+    const step = Math.floor(t / beat) % melody.length;
+    const freq =
+      220 *
+      Math.pow(2, (melody[step] + bass[Math.floor(step / 2)] / 2) / 12);
+    const env = Math.exp(-((t % beat) * 6));
+    const synth =
+      Math.sin(2 * Math.PI * freq * t) * 0.22 +
+      Math.sin(2 * Math.PI * (freq * 2) * t) * 0.06;
+    const hats = (Math.random() * 2 - 1) * 0.015 * (1 - (t % (beat / 2)) * 4);
+    data[i] = (synth * env + hats) * 0.9;
+  }
+
+  const wavBlob = bufferToWavBlob(buffer);
+  const url = URL.createObjectURL(wavBlob);
+  audio.src = url;
+  demoLoaded = true;
+  chartTitle = "Demo Track";
+  songMeta.textContent = "Loaded: Built-in demo track";
+  audio.addEventListener(
+    "loadedmetadata",
+    () => {
+      songMeta.textContent = `Loaded: Built-in demo track · ${audio.duration.toFixed(1)}s`;
+    },
+    { once: true }
+  );
+}
+
+function bufferToWavBlob(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const length = buffer.length * numChannels * 2 + 44;
+  const arrayBuffer = new ArrayBuffer(length);
+  const view = new DataView(arrayBuffer);
+  let offset = 0;
+
+  function writeString(string) {
+    for (let i = 0; i < string.length; i += 1) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+    offset += string.length;
+  }
+
+  function writeUint32(value) {
+    view.setUint32(offset, value, true);
+    offset += 4;
+  }
+
+  function writeUint16(value) {
+    view.setUint16(offset, value, true);
+    offset += 2;
+  }
+
+  writeString("RIFF");
+  writeUint32(length - 8);
+  writeString("WAVE");
+  writeString("fmt ");
+  writeUint32(16);
+  writeUint16(1);
+  writeUint16(numChannels);
+  writeUint32(sampleRate);
+  writeUint32(sampleRate * numChannels * 2);
+  writeUint16(numChannels * 2);
+  writeUint16(16);
+  writeString("data");
+  writeUint32(length - 44);
+
+  const interleaved = new Float32Array(buffer.length * numChannels);
+  for (let channel = 0; channel < numChannels; channel += 1) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < buffer.length; i += 1) {
+      interleaved[i * numChannels + channel] = channelData[i];
+    }
+  }
+
+  for (let i = 0; i < interleaved.length; i += 1) {
+    const sample = Math.max(-1, Math.min(1, interleaved[i]));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    offset += 2;
+  }
+
+  return new Blob([arrayBuffer], { type: "audio/wav" });
+}
+
+function loadDemoChart() {
+  if (!demoNotes.length) {
+    const bpm = 118;
+    const beat = 60 / bpm;
+    const pattern = [0, 1, 2, 3, 4, 3, 2, 1];
+    const demo = [];
+    let time = 0.8;
+    for (let bar = 0; bar < 16; bar += 1) {
+      for (let step = 0; step < pattern.length; step += 1) {
+        demo.push({ lane: pattern[step], time: Number(time.toFixed(3)) });
+        time += beat / 2;
+      }
+      time += beat / 2;
+    }
+    demoNotes = demo;
+  }
+  notes = demoNotes.map((note) => ({
+    lane: note.lane,
+    time: note.time,
+    hit: false,
+    miss: false,
+    el: null,
+  }));
+  chartTitle = "Demo Track";
+  sortNotes();
+  rebuildNotes();
+  songMeta.textContent = `Chart loaded: ${chartTitle} (${notes.length} notes)`;
+}
+
 audioFile.addEventListener("change", (event) => {
   const file = event.target.files[0];
   if (!file) return;
   const url = URL.createObjectURL(file);
   audio.src = url;
+  demoLoaded = false;
   chartTitle = file.name.replace(/\.[^/.]+$/, "");
   songMeta.textContent = `Loaded: ${file.name}`;
   audio.addEventListener(
@@ -295,6 +428,8 @@ clearChart.addEventListener("click", () => {
   rebuildNotes();
   songMeta.textContent = "Chart cleared.";
 });
+demoSongBtn.addEventListener("click", loadDemoSong);
+demoChartBtn.addEventListener("click", loadDemoChart);
 
 recordBtn.addEventListener("click", startRecord);
 playBtn.addEventListener("click", startPlay);
