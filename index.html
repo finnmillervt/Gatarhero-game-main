@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gatar Hero Lite</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__text">
+        <p class="eyebrow">Browser Rhythm Game</p>
+        <h1>Gatar Hero Lite</h1>
+        <p class="lede">
+          Import a song, record a chart by tapping keys to the beat, and play it back
+          with falling notes. Shareable, GitHub Pages-ready, no installs needed.
+        </p>
+      </div>
+      <div class="hero__badge">
+        <span class="badge__title">Keys</span>
+        <span class="badge__keys">A S D F G</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <h2>Setup</h2>
+        <div class="field">
+          <label for="audioFile">Song (mp3/wav/ogg)</label>
+          <input id="audioFile" type="file" accept="audio/*" />
+          <p class="hint" id="songMeta">No song loaded yet.</p>
+        </div>
+
+        <div class="field">
+          <label for="chartFile">Import chart (JSON)</label>
+          <input id="chartFile" type="file" accept="application/json" />
+          <div class="row">
+            <button id="exportChart" class="ghost">Export chart</button>
+            <button id="clearChart" class="ghost">Clear chart</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="leadTime">Note travel time (seconds)</label>
+          <input id="leadTime" type="number" min="0.8" max="5" step="0.1" value="2.2" />
+          <p class="hint">How long notes take to fall to the hit line.</p>
+        </div>
+
+        <div class="field">
+          <label for="hitWindow">Hit window (ms)</label>
+          <input id="hitWindow" type="number" min="60" max="350" step="10" value="160" />
+        </div>
+
+        <div class="field">
+          <label for="latency">Input latency offset (ms)</label>
+          <input id="latency" type="number" min="-300" max="300" step="5" value="0" />
+          <p class="hint">Positive means you press late; adjust to feel right.</p>
+        </div>
+
+        <div class="row">
+          <button id="recordBtn" class="primary">Record chart</button>
+          <button id="playBtn" class="primary">Play chart</button>
+          <button id="stopBtn">Stop</button>
+        </div>
+
+        <div class="stats">
+          <div>
+            <span class="stat__label">Mode</span>
+            <span class="stat__value" id="modeLabel">Idle</span>
+          </div>
+          <div>
+            <span class="stat__label">Score</span>
+            <span class="stat__value" id="scoreLabel">0</span>
+          </div>
+          <div>
+            <span class="stat__label">Combo</span>
+            <span class="stat__value" id="comboLabel">0</span>
+          </div>
+          <div>
+            <span class="stat__label">Accuracy</span>
+            <span class="stat__value" id="accuracyLabel">--</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <h3>How it works</h3>
+          <ol class="steps">
+            <li>Load a song file.</li>
+            <li>Press “Record chart” and tap A-S-D-F-G to the beat.</li>
+            <li>Stop, then press “Play chart”.</li>
+            <li>Export the JSON to share.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="stage">
+        <div class="playfield" id="playfield">
+          <div class="lanes" id="lanes"></div>
+          <div class="hitline"></div>
+        </div>
+        <div class="lane-keys" id="laneKeys"></div>
+        <div class="timeline">
+          <div class="timeline__bar" id="timelineBar"></div>
+        </div>
+      </section>
+    </main>
+
+    <audio id="audio" preload="auto"></audio>
+    <script src="app.js"></script>
+  </body>
+</html>
